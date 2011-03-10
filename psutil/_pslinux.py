@@ -194,6 +194,9 @@ def wrap_exceptions(callable):
             if err.errno in (errno.EPERM, errno.EACCES):
                 raise AccessDenied(self.pid, self._process_name)
             raise
+
+    wrapper.__doc__ = callable.__doc__
+    
     return wrapper
 
 
