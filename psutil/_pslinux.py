@@ -524,7 +524,12 @@ class LinuxProcess(object):
                         conn = ntuple_connection(fd, family, _type, laddr,
                                                  raddr, status, 1)
                 else:
-                    _, count, _, _, _, status, inode, path = line.split()
+                    _, count, _, _, _, status, inode = line.split()[:7]
+                    path = line.rsplit(None, 1)[-1]
+                    if path == inode:
+                        # Some lines are missing a path. In that case the previous line should
+                        # give us the inode
+                        path = None
                     if inode in inodes:
                         fd = int(inodes[inode])
                         conn = ntuple_connection(fd, family, _type, path, None, status,
