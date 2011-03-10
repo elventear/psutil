@@ -532,6 +532,7 @@ class LinuxProcess(object):
                         else:
                             path = None
                         fd = int(inodes[inode])
+                        count = int(count)
                         conn = ntuple_connection(fd, family, _type, path, None, status,
                                                  count)
                 if conn is not None:
