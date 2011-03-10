@@ -47,7 +47,7 @@ ntuple_connection = namedtuple('connection', 'fd family type local_address remot
                                'status count')
 if not sys.platform.lower().startswith("linux"):
     _ntuple_connection = ntuple_connection
-    ntuple_connection = lambda *a: _ntuple_connection(*a, 1)
+    ntuple_connection = lambda *a: _ntuple_connection(*(list(a)+[1]))
 
 ntuple_thread = namedtuple('thread', 'id user_time system_time')
 ntuple_uids = namedtuple('user', 'real effective saved')
