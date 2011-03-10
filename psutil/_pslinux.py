@@ -465,7 +465,26 @@ class LinuxProcess(object):
 #        return lsof.get_process_open_files()
 
     @wrap_exceptions
-    def get_connections(self):
+    def get_connections(self, kind='inet'):
+        """Get the number of connections associated with this process. Use the kind
+        parameter to only count the connections that fit the following criteria:
+
+        Kind Value      Number of connections using
+        inet            IP and IPv6
+        inet4           IP
+        inet6           IPv6
+        tcp             TCP
+        tcp4            TCP over IP
+        tcp6            TCP over IPv6
+        tcpu            TCP over a Unix Socket
+        udp             UDP
+        udp4            UDP over IP
+        udp6            UDP over IPv6
+        udpu            UDP over a Unix Socket
+        unix            Unix Sockets
+        all             the sum of all the possible families and protocols
+        
+        """
         if self.pid == 0:
             return []
         inodes = {}
@@ -506,11 +525,36 @@ class LinuxProcess(object):
             f.close()
             return retlist
 
-        tcp4 = process("/proc/net/tcp", socket.AF_INET, socket.SOCK_STREAM)
-        tcp6 = process("/proc/net/tcp6", socket.AF_INET6, socket.SOCK_STREAM)
-        udp4 = process("/proc/net/udp", socket.AF_INET, socket.SOCK_DGRAM)
-        udp6 = process("/proc/net/udp6", socket.AF_INET6, socket.SOCK_DGRAM)
-        return tcp4 + tcp6 + udp4 + udp6
+
+        tcp4 = ("tcp" , socket.AF_INET , socket.SOCK_STREAM)
+        tcp6 = ("tcp6", socket.AF_INET6, socket.SOCK_STREAM)
+        udp4 = ("udp" , socket.AF_INET , socket.SOCK_DGRAM)
+        udp6 = ("udp6", socket.AF_INET6, socket.SOCK_DGRAM)
+        tcpu = ("unix", socket.AF_UNIX , socket.SOCK_STREAM)
+        udpu = ("unix", socket.AF_UNIX , socket.SOCK_DGRAM)
+
+        agg = []
+        for f, family, _type in {
+            "all"  : (tcp4, tcp6, udp4, udp6, tcpu, udpu),
+            "tcp"  : (tcp4, tcp6, tcpu),
+            "tcpi" : (tcp4, tcp6),
+            "tcp4" : (tcp4,),
+            "tcp6" : (tcp6,),
+            "tcpu" : (tcpu,),
+            "udp"  : (udp4, udp6, udpu),
+            "udpi" : (udp4, udp6),
+            "udp4" : (udp4,),
+            "udp6" : (udp6,),
+            "udpu" : (udpu,),
+            "inet" : (tcp4, tcp6, udp4, udp6),
+            "inet4": (tcp4, udp4),
+            "inet6": (tcp6, udp6),
+            "unix" : (tcpu, udpu)
+            }[kind]:
+
+            agg.append(process("/proc/net/%s" % f, family, _type))
+
+        return sum(agg)
 
 #    --- lsof implementation
 #
