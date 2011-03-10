@@ -393,13 +393,13 @@ class Process(object):
         """
         return self._platform_impl.get_open_files()
 
-    def get_connections(self):
+    def get_connections(self, *a, **kw):
         """Return TCP and UPD connections opened by process as a list
         of namedtuples.
         On BSD and OSX results for third party processes (!= os.getpid())
         can differ depending on user privileges.
         """
-        return self._platform_impl.get_connections()
+        return self._platform_impl.get_connections(*a, **kw)
 
     def is_running(self):
         """Return whether the current process is running in the current

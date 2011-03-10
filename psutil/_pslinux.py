@@ -194,6 +194,9 @@ def wrap_exceptions(callable):
             if err.errno in (errno.EPERM, errno.EACCES):
                 raise AccessDenied(self.pid, self._process_name)
             raise
+
+    wrapper.__doc__ = callable.__doc__
+    
     return wrapper
 
 
@@ -465,7 +468,24 @@ class LinuxProcess(object):
 #        return lsof.get_process_open_files()
 
     @wrap_exceptions
-    def get_connections(self):
+    def get_connections(self, kind='inet'):
+        """Get the number of connections associated with this process. Use the kind
+        parameter to only count the connections that fit the following criteria:
+
+        Kind Value      Number of connections using
+        inet            IP and IPv6
+        inet4           IP
+        inet6           IPv6
+        tcp             TCP
+        tcp4            TCP over IP
+        tcp6            TCP over IPv6
+        udp             UDP
+        udp4            UDP over IP
+        udp6            UDP over IPv6
+        unix            Unix Sockets
+        all             the sum of all the possible families and protocols
+        
+        """
         if self.pid == 0:
             return []
         inodes = {}
@@ -491,26 +511,65 @@ class LinuxProcess(object):
             f = open(file)
             f.readline()  # skip the first line
             for line in f:
-                _, laddr, raddr, status, _, _, _, _, _, inode = line.split()[:10]
-                if inode in inodes:
-                    laddr = self._decode_address(laddr, family)
-                    raddr = self._decode_address(raddr, family)
-                    if _type == socket.SOCK_STREAM:
-                        status = _TCP_STATES_TABLE[status]
-                    else:
-                        status = ""
-                    fd = int(inodes[inode])
-                    conn = ntuple_connection(fd, family, _type, laddr,
-                                             raddr, status)
+                conn = None
+                if family in [socket.AF_INET, socket.AF_INET6]:
+                    _, laddr, raddr, status, _, _, _, _, _, inode = line.split()[:10]
+                    if inode in inodes:
+                        laddr = self._decode_address(laddr, family)
+                        raddr = self._decode_address(raddr, family)
+                    
+                        if _type == socket.SOCK_STREAM:
+                            status = _TCP_STATES_TABLE[status]
+                        else:
+                            status = ""
+
+                        fd = int(inodes[inode])
+                        conn = ntuple_connection(fd, family, _type, laddr,
+                                                 raddr, status, 1)
+                else:
+                    tokens = line.split()
+                    _, count, _, _, _, status, inode = tokens[0:7]
+                    if inode in inodes:
+                        if len(tokens) == 8:
+                            path = tokens[-1]
+                        else:
+                            path = None
+                        fd = int(inodes[inode])
+                        count = int(count)
+                        conn = ntuple_connection(fd, family, _type, path, None, status,
+                                                 count)
+                if conn is not None:
                     retlist.append(conn)
             f.close()
             return retlist
 
-        tcp4 = process("/proc/net/tcp", socket.AF_INET, socket.SOCK_STREAM)
-        tcp6 = process("/proc/net/tcp6", socket.AF_INET6, socket.SOCK_STREAM)
-        udp4 = process("/proc/net/udp", socket.AF_INET, socket.SOCK_DGRAM)
-        udp6 = process("/proc/net/udp6", socket.AF_INET6, socket.SOCK_DGRAM)
-        return tcp4 + tcp6 + udp4 + udp6
+
+        tcp4 = ("tcp" , socket.AF_INET , socket.SOCK_STREAM)
+        tcp6 = ("tcp6", socket.AF_INET6, socket.SOCK_STREAM)
+        udp4 = ("udp" , socket.AF_INET , socket.SOCK_DGRAM)
+        udp6 = ("udp6", socket.AF_INET6, socket.SOCK_DGRAM)
+        unix = ("unix", socket.AF_UNIX , socket.SOCK_STREAM)
+
+        agg = []
+        for f, family, _type in {
+            "all"  : (tcp4, tcp6, udp4, udp6, unix),
+            "tcp"  : (tcp4, tcp6, unix),
+            "tcpi" : (tcp4, tcp6),
+            "tcp4" : (tcp4,),
+            "tcp6" : (tcp6,),
+            "udp"  : (udp4, udp6),
+            "udpi" : (udp4, udp6),
+            "udp4" : (udp4,),
+            "udp6" : (udp6,),
+            "inet" : (tcp4, tcp6, udp4, udp6),
+            "inet4": (tcp4, udp4),
+            "inet6": (tcp6, udp6),
+            "unix" : (unix,)
+            }[kind]:
+
+            agg.append(process("/proc/net/%s" % f, family, _type))
+
+        return reduce(lambda x, y: x+y, agg)
 
 #    --- lsof implementation
 #
