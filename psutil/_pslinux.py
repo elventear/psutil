@@ -554,7 +554,7 @@ class LinuxProcess(object):
 
             agg.append(process("/proc/net/%s" % f, family, _type))
 
-        return sum(agg)
+        return reduce(lambda x,y: x+y, agg)
 
 #    --- lsof implementation
 #
