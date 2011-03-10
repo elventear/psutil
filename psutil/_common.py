@@ -5,6 +5,8 @@
 
 """Common objects shared by all _ps* modules."""
 
+import sys
+
 from psutil._compat import namedtuple
 
 class constant(int):
