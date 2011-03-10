@@ -41,7 +41,8 @@ ntuple_sys_cputimes = namedtuple('cputimes', 'user nice system idle iowait irq s
 ntuple_meminfo = namedtuple('meminfo', 'rss vms')
 ntuple_cputimes = namedtuple('cputimes', 'user system')
 ntuple_openfile = namedtuple('openfile', 'path fd')
-ntuple_connection = namedtuple('connection', 'fd family type local_address remote_address status')
+ntuple_connection = namedtuple('connection', 'fd family type local_address remote_address '\
+                               'status count')
 ntuple_thread = namedtuple('thread', 'id user_time system_time')
 ntuple_uids = namedtuple('user', 'real effective saved')
 ntuple_gids = namedtuple('group', 'real effective saved')
